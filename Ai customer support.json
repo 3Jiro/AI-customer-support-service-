@@ -1,0 +1,441 @@
+{
+  "name": "Ai customer support",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "94fc3579-b29a-4b73-8a48-833e71f8f72f",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "41ffeace-15da-4ee7-9c0c-c89c31faebf7",
+      "name": "Webhook",
+      "webhookId": "94fc3579-b29a-4b73-8a48-833e71f8f72f"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.message }}",
+        "options": {
+          "systemMessage": "=You are an expert AI Support Agent for [Your Portfolio Company Name]. \nYour goal is to provide accurate, empathetic, and concise support.\n\n### DATA PROTOCOL:\nWhen you use the 'Check_Order_Database' tool, you MUST prefix your internal thought process or the very beginning of your response with this exact string: \n[VERIFY: Status={{Status}}, Carrier={{Carrier}}] \n(Replace the curly brackets with the actual data from the tool).\n\n### OPERATING RULES:\n1. ALWAYS check the 'Search_Knowledge_Base' tool for general questions (Shipping, Refunds, Tech Support).\n2. ALWAYS check the 'Check_Order_Database' tool if the user provides a 5-digit Order ID.\n3. If a tool returns \"not found,\" do not make up an answer. Politely ask the user to double-check their details.\n4. If the user is angry or asking for a \"Refund,\" provide the policy from the tool AND then flag the conversation for human review.\n\n### DATA HANDLING:\n- If you find an order status, report it exactly as: \"Order [ID] is [Status] via [Carrier]. Expected: [Date].\"\n- Do not mention that you are \"searching a database\" or \"using a tool.\" Just provide the answer as a helpful human would.\n\n### TONE:\nProfessional, helpful, and concise. No \"AI-speak\" or unnecessary apologies.\n\n### CRITICAL RULE:\nYou are prohibited from answering any questions about Order Status from memory. \nEven if you think you know the status, you MUST call the 'Check_Order_Database' tool every single time a user provides an Order ID. \nIf you do not call the tool, the system will fail."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        256,
+        0
+      ],
+      "id": "00d1e41e-f6a0-4728-8180-5230d3c02dfb",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        192,
+        224
+      ],
+      "id": "b2d89186-2cf1-47a1-b507-414feb4fbf48",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "IYTeTOkVCsAMAg5v",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "1uGcdKarz_7TCBHI1b7qw3-326IF8VZSkHrYOlHnf6U0",
+          "mode": "list",
+          "cachedResultName": "n8n project",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1uGcdKarz_7TCBHI1b7qw3-326IF8VZSkHrYOlHnf6U0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 389164824,
+          "mode": "list",
+          "cachedResultName": "ai customer support",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1uGcdKarz_7TCBHI1b7qw3-326IF8VZSkHrYOlHnf6U0/edit#gid=389164824"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Category (Column A)",
+              "lookupValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('values0_Value', ``, 'string') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        400,
+        224
+      ],
+      "id": "ffbe8399-b879-42af-8796-cfee5873158c",
+      "name": "Search_Knowledge_Base",
+      "credentials": {
+        "googleApi": {
+          "id": "IYOOUqOdH8fK5JqS",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get the data from the Edit Fields node\nconst aiMsg = $json.ai_response.toLowerCase();\nconst realStatus = $json.actual_status.toLowerCase();\nconst realCarrier = $json.actual_carrier.toLowerCase();\n\n// 2. The Verification Logic\n// Does the AI's friendly message actually contain the words from the database?\nconst statusMatch = aiMsg.includes(realStatus);\nconst carrierMatch = aiMsg.includes(realCarrier);\n\nconst finalScore = (statusMatch && carrierMatch) ? 1.0 : 0.0;\n\nreturn {\n  final_response: $json.ai_response,\n  confidence_score: finalScore,\n  low_confidence: finalScore < 0.8,\n  reason: finalScore === 1.0 ? \"✅ Verified: AI response matches Database.\" : \"🚨 Hallucination: AI data mismatch!\",\n  verified: finalScore === 1.0\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        0
+      ],
+      "id": "980ebf8f-35a3-4515-8084-a2b7fd80a167",
+      "name": "Confidence Scorer"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "788de177-eba2-4cf8-9b49-4bb4b21f2937",
+              "leftValue": "={{ $json.confidence_score }}",
+              "rightValue": 0.7,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        976,
+        0
+      ],
+      "id": "8b5c38a0-1ef1-414a-8e77-06bbc6ff5a50",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "=Use this to find order status. \nIMPORTANT: When you respond to the user, you MUST include the Status and Carrier exactly as they appear in the database.",
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "1uGcdKarz_7TCBHI1b7qw3-326IF8VZSkHrYOlHnf6U0",
+          "mode": "list",
+          "cachedResultName": "n8n project",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1uGcdKarz_7TCBHI1b7qw3-326IF8VZSkHrYOlHnf6U0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1265236336,
+          "mode": "list",
+          "cachedResultName": "orders",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1uGcdKarz_7TCBHI1b7qw3-326IF8VZSkHrYOlHnf6U0/edit#gid=1265236336"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "=Order_ID",
+              "lookupValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('values0_Value', ``, 'string') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        576,
+        224
+      ],
+      "id": "de9da030-a4b5-4d82-bec1-f99032761325",
+      "name": "Check_Order_Database",
+      "notesInFlow": false,
+      "credentials": {
+        "googleApi": {
+          "id": "IYOOUqOdH8fK5JqS",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6a200651-6cdf-4567-bf8f-12c2ec5823d0",
+              "name": "ai_response",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "a5fd778b-88f6-4e94-aea1-361a815bd86a",
+              "name": "actual_status",
+              "value": "={{ $json.output.match(/\\[VERIFY: Status=(.*?),/) ? $json.output.match(/\\[VERIFY: Status=(.*?),/)[1] : \"no_lookup\" }}",
+              "type": "string"
+            },
+            {
+              "id": "63ade3f6-5ae7-48b6-8210-eef1cdb74379",
+              "name": "actual_carrier",
+              "value": "={{ $json.output.match(/Carrier=(.*?)\\]/) ? $json.output.match(/Carrier=(.*?)\\]/)[1] : \"n/a\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        576,
+        0
+      ],
+      "id": "29c6a9c7-10d5-4f98-93cc-91850ea72a6c",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "498b66db-4be0-4e92-9faf-436200745e9b",
+              "name": "final_response",
+              "value": "={{ $json.final_response.split(']')[1].trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1184,
+        -112
+      ],
+      "id": "3f808518-ca83-4abe-9118-c3ba6aaf8ccf",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0ALF5Y4267",
+          "mode": "list",
+          "cachedResultName": "all-n8n-test"
+        },
+        "text": "=This requires human review!\n\nAI confidence score: {{ $('Confidence Scorer').item.json.confidence_score }}\nAI reason: {{ $('Confidence Scorer').item.json.reason }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1184,
+        96
+      ],
+      "id": "7af82fe8-ea4f-41c3-983e-10ac999d2149",
+      "name": "Send a message",
+      "webhookId": "180d8b6f-4649-4911-a6d7-79b73af12219",
+      "credentials": {
+        "slackApi": {
+          "id": "008VTzrNGbd0M0sF",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1392,
+        -112
+      ],
+      "id": "b7b44886-8681-4e22-9361-f452da85388d",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "marilu-pervious-ivette.ngrok-free.dev",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+            "content-length": "39",
+            "accept": "*/*",
+            "accept-encoding": "deflate, gzip",
+            "content-type": "application/json",
+            "x-forwarded-for": "64.227.21.251",
+            "x-forwarded-host": "marilu-pervious-ivette.ngrok-free.dev",
+            "x-forwarded-proto": "https",
+            "x-real-ip": "102.90.123.156"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "message": "Where is my order 12345?"
+          },
+          "webhookUrl": "https://marilu-pervious-ivette.ngrok-free.dev/webhook-test/94fc3579-b29a-4b73-8a48-833e71f8f72f",
+          "executionMode": "test"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search_Knowledge_Base": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confidence Scorer": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check_Order_Database": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Confidence Scorer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "e68f54ea-a316-423f-9093-2684fd23707f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "54b06315817fd07df4927ca7349fea37606eb75294a247e231fd9d13aa12f311"
+  },
+  "id": "B39Bn0fbumPxvnLR",
+  "tags": []
+}
